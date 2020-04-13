@@ -20,7 +20,9 @@ app.view("story-point-modal", async ({ ack, body, view, context, user }) => {
 
 app.action("open_vote", async ({ action, respond, say, ack }) => {
   console.log({ action });
-  // const { actions, message, trigger_id } = payload;
+  const { actions, message, trigger_id } = action;
+
+  say("```" + JSON.stringify({ action }, null, 2) + "```");
 
   await ack();
 
