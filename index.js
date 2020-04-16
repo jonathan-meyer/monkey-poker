@@ -1,46 +1,36 @@
 require("dotenv").config();
 
 const { App, LogLevel } = require("@slack/bolt");
+const mongoose = require("mongoose");
 
-const port = process.env.PORT || 3000;
-
-const db = {};
+const Story = require("./Story");
+const Vote = require("./Vote");
 
 const app = new App({
   token: process.env.SLACK_TOKEN_BOT,
   signingSecret: process.env.SLACK_SIGNING_SECRET,
   logLevel: LogLevel.DEBUG,
   convoStore: {
-    set: (conversationId, value, expiresAt) =>
-      new Promise((resolve, reject) => {
-        console.log("set", { conversationId, value, expiresAt });
-        db[conversationId] = value;
-        resolve();
-      }),
-    get: (conversationId) =>
-      new Promise((resolve, reject) => {
-        const conversation = db[conversationId] || {};
-        console.log("get", { conversationId, conversation });
-        resolve(conversation);
-      }),
+    set: () => Promise.resolve(),
+    get: () => Promise.resolve({}),
   },
 });
 
-const message = ({ user_name, story, members }) => ({
+const message = ({ _id, userId, storyText, votes }, { members }) => ({
   text: `Time to point a story.`,
   blocks: [
     {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `:raising_hand: <@${user_name}> has requested the team point this story:`,
+        text: `:raising_hand: <@${userId}> has requested the team point this story:`,
       },
     },
     {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `> "_${story}"_`,
+        text: `> "_${storyText}"_`,
       },
     },
     {
@@ -49,7 +39,7 @@ const message = ({ user_name, story, members }) => ({
         {
           type: "button",
           action_id: `open_vote`,
-          value: story,
+          value: _id,
           text: {
             type: "plain_text",
             text: `Point Story`,
@@ -62,17 +52,46 @@ const message = ({ user_name, story, members }) => ({
       block_id: "members",
       text: {
         type: "mrkdwn",
-        text: members.map((id) => `[<@${id}>:question:]`).join(" "),
+        text: Object.entries({
+          ...members.reduce((p, c) => ({ ...p, [c]: null }), {}),
+          ...votes.reduce((p, c) => ({ ...p, [c.userId]: c.value }), {}),
+        })
+          .map(
+            ([id, vote]) =>
+              `<@${id}> (${vote ? ":heavy_check_mark:" : ":question:"})`
+          )
+          .join(" | "),
       },
     },
   ],
 });
 
-const dialog = ({ trigger_id, story }) => ({
+const option = (value) =>
+  value != undefined
+    ? {
+        text: {
+          type: "mrkdwn",
+          text: `${value}`,
+        },
+        value: `${value}`,
+      }
+    : undefined;
+
+const dialog = (
+  trigger_id,
+  { _id, storyText, votes, channelId },
+  ts,
+  user_id
+) => ({
   trigger_id,
   view: {
     type: "modal",
     callback_id: "story-point-modal",
+    private_metadata: JSON.stringify({
+      channel_id: channelId,
+      ts,
+      story_id: _id,
+    }),
     title: {
       type: "plain_text",
       text: "Point This Story",
@@ -94,7 +113,7 @@ const dialog = ({ trigger_id, story }) => ({
         block_id: "story",
         text: {
           type: "mrkdwn",
-          text: `_"${story}"_`,
+          text: `_"${storyText}"_`,
         },
       },
       {
@@ -107,13 +126,12 @@ const dialog = ({ trigger_id, story }) => ({
         element: {
           type: "radio_buttons",
           action_id: "vote",
-          options: [0, 2, 3, 5, 13, 20, 40, 100, "?", "&infin;"].map((n) => ({
-            text: {
-              type: "mrkdwn",
-              text: `${n}`,
-            },
-            value: `${n}`,
-          })),
+          initial_option: option(
+            votes
+              .filter((vote) => vote.userId === user_id)
+              .reduce((p, c) => c.value, undefined)
+          ),
+          options: [0, 0.5, 1, 2, 3, 5, 13, 20, 40, 100].map(option),
         },
       },
     ],
@@ -124,45 +142,96 @@ app.error((error) => {
   console.error("global", { error });
 });
 
-app.view("story-point-modal", async ({ view, body, ack, logger }) => {
-  const { value } = view.state.values.points.vote.selected_option;
-  const { user } = body;
+app.use(async ({ context, next, logger }) => {
+  context.createStory = (channelId, userId, storyText) =>
+    new Promise((resolve, reject) => {
+      logger.debug({ createStory: { channelId, userId, storyText } });
 
-  await ack();
-
-  logger.info({ view });
-});
-
-app.action("open_vote", async ({ action, body, client, ack, logger }) => {
-  const { value } = action;
-  const { trigger_id } = body;
-
-  await ack();
-
-  logger.info({ trigger_id, story: value });
-
-  client.views
-    .open(dialog({ trigger_id, story: value }))
-    .then(() => {})
-    .catch((error) => logger.error("views.open", error));
-});
-
-app.command("/point-story", async ({ command, ack, say, client, logger }) => {
-  const { channel_id, user_name, text } = command;
-
-  await ack();
-
-  client.conversations
-    .members({ channel: channel_id })
-    .then(({ members }) => {
-      say(message({ user_name, story: text, members }));
-    })
-    .catch((error) => {
-      logger.error("conversations.members", error);
+      Story.findOne({ channelId, userId, storyText })
+        .then((story) => {
+          return story || Story.create({ channelId, userId, storyText });
+        })
+        .then((story) => {
+          logger.debug({ story });
+          resolve(story);
+        })
+        .catch(reject);
     });
+
+  context.getStory = (storyId) => {
+    logger.debug("getStory", { storyId });
+    return Story.findById(storyId);
+  };
+
+  context.updateStory = (storyId, vote) =>
+    new Promise((resolve, reject) => {
+      logger.debug({ updateStory: { storyId, vote } });
+
+      Story.findById(storyId)
+        .then((story) => {
+          story.votes.push(vote);
+          story
+            .save()
+            .then(() => {
+              logger.debug({ story });
+              resolve(story);
+            })
+            .catch(reject);
+        })
+        .catch(reject);
+    });
+
+  await next();
+});
+
+app.view("story-point-modal", async ({ view, body, client, ack, context }) => {
+  const { private_metadata, state } = view;
+  const { channel_id, ts, story_id } = JSON.parse(private_metadata);
+  const vote = {
+    userId: body.user.id,
+    value: state.values.points.vote.selected_option.value,
+  };
+
+  await ack();
+
+  const members = await client.conversations.members({ channel: channel_id });
+  const story = await context.updateStory(story_id, vote);
+
+  await client.chat.update({
+    channel: channel_id,
+    ts,
+    ...message(story, members, body.user.id),
+  });
+});
+
+app.action("open_vote", async ({ action, body, client, ack, context }) => {
+  const { trigger_id, message, user } = body;
+
+  await ack();
+
+  const story = await context.getStory(action.value);
+
+  await client.views.open(dialog(trigger_id, story, message.ts, user.id));
+});
+
+app.command("/point-story", async ({ command, ack, say, client, context }) => {
+  const { channel_id, user_id, text } = command;
+
+  await ack();
+
+  const members = await client.conversations.members({ channel: channel_id });
+  const story = await context.createStory(channel_id, user_id, text);
+
+  await say(message(story, members));
 });
 
 (async () => {
-  await app.start(port);
+  await mongoose.connect(process.env.MONGODB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  });
+  console.log("connected to Mongo");
+
+  await app.start(process.env.PORT || 3000);
   console.log("⚡️ Bolt app is running!");
 })();
