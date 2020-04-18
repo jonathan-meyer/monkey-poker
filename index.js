@@ -16,55 +16,98 @@ const app = new App({
   },
 });
 
-const message = ({ _id, userId, storyText, votes }, { members }) => ({
-  text: `Time to point a story.`,
-  blocks: [
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `:raising_hand: <@${userId}> has requested the team point this story:`,
-      },
+const toggleViewButton = (storyId, showVotes) => {
+  const button = {
+    type: "button",
+    action_id: `toggle_view`,
+    value: storyId,
+    text: {
+      type: "plain_text",
+      text: showVotes ? "Hide Points" : "Show Points",
     },
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `> "_${storyText}"_`,
-      },
-    },
-    {
-      type: "actions",
-      elements: [
-        {
-          type: "button",
-          action_id: `open_vote`,
-          value: _id,
-          text: {
-            type: "plain_text",
-            text: `Point Story`,
-          },
+  };
+
+  if (!showVotes) {
+    button.style = "danger";
+    button.confirm = {
+      title: { type: "plain_text", text: "Show all Points?" },
+      text: { type: "plain_text", text: "Are you sure?" },
+      confirm: { type: "plain_text", text: "Yes" },
+      deny: { type: "plain_text", text: "No!" },
+    };
+  }
+
+  return button;
+};
+
+const message = (
+  { _id, userId, storyText, show_votes, votes },
+  { members }
+) => {
+  const members_votes = Object.entries({
+    ...members.reduce((p, c) => ({ ...p, [c]: null }), {}),
+    ...votes.reduce((p, c) => ({ ...p, [c.userId]: c.value }), {}),
+  });
+
+  const all_voted = members_votes.reduce((p, c) => c[1] != null && p, true);
+  const two_voted = members_votes.filter((v) => v[1] != null) >= 2;
+
+  return {
+    text: `Time to point a story.`,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `:raising_hand: <@${userId}> has requested the team point this story:`,
         },
-      ],
-    },
-    {
-      type: "section",
-      block_id: "members",
-      text: {
-        type: "mrkdwn",
-        text: Object.entries({
-          ...members.reduce((p, c) => ({ ...p, [c]: null }), {}),
-          ...votes.reduce((p, c) => ({ ...p, [c.userId]: c.value }), {}),
-        })
-          .map(
-            ([id, vote]) =>
-              `<@${id}> (${vote ? ":heavy_check_mark:" : ":question:"})`
-          )
-          .join(" | "),
       },
-    },
-  ],
-});
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `> "_${storyText}"_`,
+        },
+      },
+      {
+        type: "actions",
+        elements: [
+          {
+            type: "button",
+            action_id: `open_vote`,
+            value: _id,
+            text: {
+              type: "plain_text",
+              text: `Point Story`,
+            },
+          },
+          all_voted || two_voted
+            ? toggleViewButton(_id, show_votes)
+            : undefined,
+        ].filter((e) => e),
+      },
+      {
+        type: "section",
+        block_id: "members",
+        text: {
+          type: "mrkdwn",
+          text: members_votes
+            .map(
+              ([id, vote]) =>
+                `<@${id}> (${
+                  vote
+                    ? show_votes
+                      ? vote
+                      : ":heavy_check_mark:"
+                    : ":question:"
+                })`
+            )
+            .join(" | "),
+        },
+      },
+    ],
+  };
+};
 
 const option = (value) =>
   value != undefined
@@ -87,11 +130,7 @@ const dialog = (
   view: {
     type: "modal",
     callback_id: "story-point-modal",
-    private_metadata: JSON.stringify({
-      channel_id: channelId,
-      ts,
-      story_id: _id,
-    }),
+    private_metadata: JSON.stringify({ ts, story_id: _id }),
     title: {
       type: "plain_text",
       text: "Point This Story",
@@ -158,14 +197,21 @@ app.use(async ({ context, next, logger }) => {
         .catch(reject);
     });
 
-  context.getStory = (storyId) => {
-    logger.debug("getStory", { storyId });
-    return Story.findById(storyId);
-  };
-
-  context.updateStory = (storyId, vote) =>
+  context.getStory = (storyId) =>
     new Promise((resolve, reject) => {
-      logger.debug({ updateStory: { storyId, vote } });
+      logger.debug({ getStory: { storyId } });
+
+      Story.findById(storyId)
+        .then((story) => {
+          logger.debug({ story });
+          resolve(story);
+        })
+        .catch(reject);
+    });
+
+  context.updateStoryVote = (storyId, vote) =>
+    new Promise((resolve, reject) => {
+      logger.debug({ updateStoryVote: { storyId, vote } });
 
       Story.findById(storyId)
         .then((story) => {
@@ -181,25 +227,43 @@ app.use(async ({ context, next, logger }) => {
         .catch(reject);
     });
 
+  context.toggleStoryShowVotes = (storyId) =>
+    new Promise((resolve, reject) => {
+      logger.debug({ toggleStoryShowVotes: { storyId } });
+
+      Story.findById(storyId)
+        .then((story) => {
+          story.show_votes = !story.show_votes;
+          story
+            .save()
+            .then(() => {
+              logger.debug({ story });
+              resolve(story);
+            })
+            .catch(reject);
+        })
+        .catch(reject);
+    });
+
   await next();
 });
 
 app.view("story-point-modal", async ({ view, body, client, ack, context }) => {
-  const { private_metadata, state } = view;
-  const { channel_id, ts, story_id } = JSON.parse(private_metadata);
+  const { story_id, ts } = JSON.parse(view.private_metadata);
+
   const vote = {
     userId: body.user.id,
-    value: state.values.points.vote.selected_option.value,
+    value: view.state.values.points.vote.selected_option.value,
   };
 
   await ack();
 
-  const members = await client.conversations.members({ channel: channel_id });
-  const story = await context.updateStory(story_id, vote);
+  const story = await context.updateStoryVote(story_id, vote);
+  const channel = story.channelId;
+  const members = await client.conversations.members({ channel });
 
   await client.chat.update({
-    channel: channel_id,
-    ts,
+    ...{ channel, ts },
     ...message(story, members, body.user.id),
   });
 });
@@ -210,9 +274,22 @@ app.action("open_vote", async ({ action, body, client, ack, context }) => {
   await ack();
 
   const story = await context.getStory(action.value);
-
   await client.views.open(dialog(trigger_id, story, message.ts, user.id));
 });
+
+app.action(
+  "toggle_view",
+  async ({ action, body, client, ack, respond, context }) => {
+    const { user, channel } = body;
+
+    await ack();
+
+    const story = await context.toggleStoryShowVotes(action.value);
+    const members = await client.conversations.members({ channel: channel.id });
+
+    await respond(message(story, members, user.id));
+  }
+);
 
 app.command("/point-story", async ({ command, ack, say, client, context }) => {
   const { channel_id, user_id, text } = command;
