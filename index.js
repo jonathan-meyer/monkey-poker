@@ -186,10 +186,7 @@ app.use(async ({ context, next, logger }) => {
     new Promise((resolve, reject) => {
       logger.debug({ createStory: { channelId, userId, storyText } });
 
-      Story.findOne({ channelId, userId, storyText })
-        .then((story) => {
-          return story || Story.create({ channelId, userId, storyText });
-        })
+      Story.create({ channelId, userId, storyText })
         .then((story) => {
           logger.debug({ story });
           resolve(story);
