@@ -1,5 +1,6 @@
-// const axios = require('axios')
-// const url = 'http://checkip.amazonaws.com/';
+const axios = require("axios");
+const url = "http://checkip.amazonaws.com/";
+// const url = "https://postman-echo.com/get";
 let response;
 
 /**
@@ -16,12 +17,15 @@ let response;
  */
 exports.lambdaHandler = async (event, context) => {
   try {
-    // const ret = await axios(url);
+    const ret = await axios(url);
+
     response = {
       statusCode: 200,
       body: JSON.stringify({
         message: "hello world",
-        // location: ret.data.trim()
+        location: ret.data.trim(),
+        event,
+        context,
       }),
     };
   } catch (err) {
