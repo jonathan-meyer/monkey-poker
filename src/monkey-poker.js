@@ -185,6 +185,8 @@ app.receiver.app.use((req, res, next) => {
     error: {
       message: "This is a slack app.",
       url: "https://github.com/jonathan-meyer/monkey-poker",
+      install:
+        "https://slack.com/oauth/v2/authorize?client_id=28070123121.1071205540464&scope=channels:read,chat:write,chat:write.public,commands,groups:read,users.profile:read,users:read,app_mentions:read,reactions:read&user_scope=channels:read,identify,users.profile:read,users:read,users:read.email,chat:write",
     },
   });
 
