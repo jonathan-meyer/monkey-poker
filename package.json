@@ -2,8 +2,9 @@
   "name": "monkey-poker",
   "version": "1.0.0",
   "description": "Agile Planning Poker App",
-  "main": "src/index.js",
+  "main": "src/monkey-poker-server.js",
   "scripts": {
+    "start":"node .",
     "test": "mocha tests/unit/"
   },
   "author": "Jonathan Meyer",

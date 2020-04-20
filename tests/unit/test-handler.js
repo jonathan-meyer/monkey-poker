@@ -1,8 +1,10 @@
 "use strict";
 
-const app = require("../../src/app.js");
+const app = require("../../src/hello-world-lambda");
 const chai = require("chai");
+
 const expect = chai.expect;
+
 var event, context;
 
 describe("Tests index", function () {

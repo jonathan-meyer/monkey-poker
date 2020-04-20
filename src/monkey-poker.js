@@ -1,10 +1,9 @@
 require("dotenv").config();
 
+const { exec } = require("child_process");
 const { App, LogLevel } = require("@slack/bolt");
-const mongoose = require("mongoose");
 
 const Story = require("./Story");
-const Vote = require("./Vote");
 
 const app = new App({
   token: process.env.SLACK_TOKEN_BOT,
@@ -181,6 +180,17 @@ app.error((error) => {
   console.error("global", { error });
 });
 
+app.receiver.app.use((req, res, next) => {
+  res.status(404).json({
+    error: {
+      message: "This is a slack app.",
+      url: "https://github.com/jonathan-meyer/monkey-poker",
+    },
+  });
+
+  next();
+});
+
 app.use(async ({ context, next, logger }) => {
   context.createStory = (channelId, userId, storyText) =>
     new Promise((resolve, reject) => {
@@ -299,13 +309,4 @@ app.command("/point-story", async ({ command, ack, say, client, context }) => {
   await say(message(story, members));
 });
 
-(async () => {
-  await mongoose.connect(process.env.MONGODB_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  });
-  console.log("connected to Mongo");
-
-  await app.start(process.env.PORT || 3000);
-  console.log("⚡️ Bolt app is running!");
-})();
+module.exports = app;
