@@ -2,9 +2,10 @@
   "name": "monkey-poker",
   "version": "1.0.0",
   "description": "Agile Planning Poker App",
-  "main": "index.js",
+  "main": "src/monkey-poker-server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start":"node .",
+    "test": "mocha tests/unit/"
   },
   "author": "Jonathan Meyer",
   "license": "ISC",
@@ -19,7 +20,10 @@
     "mongoose": "^5.9.9",
     "morgan": "^1.10.0"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "chai": "^4.2.0",
+    "mocha": "^6.1.4"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jonathan-meyer/monkey-poker.git"
