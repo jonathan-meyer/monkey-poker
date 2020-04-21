@@ -4,11 +4,14 @@
   "description": "Agile Planning Poker App",
   "main": "src/monkey-poker-server.js",
   "scripts": {
-    "start":"node .",
+    "start": "node .",
     "test": "mocha tests/unit/"
   },
   "author": "Jonathan Meyer",
   "license": "ISC",
+  "engines": {
+    "node": "~10"
+  },
   "dependencies": {
     "@slack/bolt": "^2.0.1",
     "@slack/events-api": "^2.3.2",
