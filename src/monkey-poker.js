@@ -351,28 +351,6 @@ app.action(
   }
 );
 
-app.shortcut(
-  "point-story",
-  async ({ shortcut, ack, say, respond, client, context, logger }) => {
-    const { channel_id, user_id, text } = shortcut;
-
-    logger.debug({ shortcut });
-
-    await ack();
-
-    try {
-      const members = await client.conversations.members({
-        channel: channel_id,
-      });
-      const story = await context.createStory(channel_id, user_id, text);
-      await say(message(story, members));
-    } catch (ex) {
-      logger.error(ex);
-      await respond(ex.message);
-    }
-  }
-);
-
 app.command(
   "/point-story",
   async ({ command, ack, say, respond, client, context, logger }) => {
