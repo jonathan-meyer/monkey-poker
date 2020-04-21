@@ -13,6 +13,10 @@ const app = new App({
     set: () => Promise.resolve(),
     get: () => Promise.resolve({}),
   },
+  authorize: ({ teamId, enterpriseId }) => {
+    console.log({ teamId, enterpriseId });
+    return {};
+  },
 });
 
 const toggleViewButton = (storyId, showVotes) => {
@@ -180,13 +184,15 @@ app.error((error) => {
   console.error("global", { error });
 });
 
-app.receiver.app.use("/install", (req, res) => {
+app.receiver.app.use("/install", (req, res, next) => {
   const { headers, query } = req;
 
-  res.json({
+  console.log({
     headers,
     query,
   });
+
+  next();
 });
 
 app.receiver.app.use((req, res, next) => {
