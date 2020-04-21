@@ -195,16 +195,21 @@ app.receiver.app.use("/install", async (req, res, next) => {
       client_id: process.env.SLACK_CLIENT_ID,
       code: query.code,
     });
-    console.log({ access });
 
-    const auth = await Auth.create({
-      teamId: access.team.id,
-      botToken: access.access_token,
-      botId: access.app_id,
-      botUserId: access.bot_user_id,
-    });
+    const auth = (await Auth.findOne({ teamId: access.team.id })) || new Auth();
 
-    res.json({ ok: true });
+    await auth
+      .overwrite({
+        teamId: access.team.id,
+        botToken: access.access_token,
+        botId: access.app_id,
+        botUserId: access.bot_user_id,
+      })
+      .save();
+
+    console.log({ auth });
+
+    res.redirect(`https://slack.com/apps/${access.app_id}`);
   } catch (ex) {
     console.error({ ex });
 
@@ -216,9 +221,8 @@ app.receiver.app.use((req, res, next) => {
   res.status(404).json({
     error: {
       message: "This is a slack app.",
-      url: "https://github.com/jonathan-meyer/monkey-poker",
-      install:
-        "https://slack.com/oauth/v2/authorize?client_id=28070123121.1071205540464&scope=channels:read,chat:write,chat:write.public,commands,groups:read,users.profile:read,users:read,app_mentions:read,reactions:read&user_scope=channels:read,identify,users.profile:read,users:read,users:read.email,chat:write",
+      url: "https://slack.com/apps/A012361FWDN",
+      src: "https://github.com/jonathan-meyer/monkey-poker",
     },
   });
 });
