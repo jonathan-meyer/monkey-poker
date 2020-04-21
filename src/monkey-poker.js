@@ -297,14 +297,19 @@ app.view("story-point-modal", async ({ view, body, client, ack, context }) => {
 
   await ack();
 
-  const story = await context.updateStoryVote(story_id, vote);
-  const channel = story.channelId;
-  const members = await client.conversations.members({ channel });
+  try {
+    const story = await context.updateStoryVote(story_id, vote);
+    const channel = story.channelId;
+    const members = await client.conversations.members({ channel });
 
-  await client.chat.update({
-    ...{ channel, ts },
-    ...message(story, members, body.user.id),
-  });
+    await client.chat.update({
+      ...{ channel, ts },
+      ...message(story, members, body.user.id),
+    });
+  } catch (ex) {
+    logger.error(ex);
+    await respond(ex.message);
+  }
 });
 
 app.action("open_vote", async ({ action, body, client, ack, context }) => {
@@ -312,8 +317,13 @@ app.action("open_vote", async ({ action, body, client, ack, context }) => {
 
   await ack();
 
-  const story = await context.getStory(action.value);
-  await client.views.open(dialog(trigger_id, story, message.ts, user.id));
+  try {
+    const story = await context.getStory(action.value);
+    await client.views.open(dialog(trigger_id, story, message.ts, user.id));
+  } catch (ex) {
+    logger.error(ex);
+    await respond(ex.message);
+  }
 });
 
 app.action(
@@ -341,6 +351,8 @@ app.command(
   "/point-story",
   async ({ command, ack, say, respond, client, context, logger }) => {
     const { channel_id, user_id, text } = command;
+
+    logger.debug({ command });
 
     await ack();
 
