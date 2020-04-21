@@ -3,6 +3,7 @@ require("dotenv").config();
 const { App, LogLevel } = require("@slack/bolt");
 
 const Story = require("./Story");
+const Auth = require("./Auth");
 
 const app = new App({
   signingSecret: process.env.SLACK_SIGNING_SECRET,
@@ -13,13 +14,9 @@ const app = new App({
   },
   authorize: async ({ teamId, enterpriseId, userId, conversationId }) => {
     console.log({ teamId, enterpriseId, userId, conversationId });
+    const { botToken, botId, botUserId } = await Auth.findOne({ teamId });
 
-    return {
-      teamId,
-      botToken: process.env.SLACK_TOKEN_BOT,
-      botId: null,
-      botUserId: null,
-    };
+    return { botToken, botId, botUserId };
   },
 });
 
@@ -189,21 +186,28 @@ app.error((error) => {
 });
 
 app.receiver.app.use("/install", async (req, res, next) => {
-  const { headers, query } = req;
-
-  console.log({ headers, query });
+  const { query } = req;
+  console.log({ query });
 
   try {
-    const auth = await app.client.oauth.access({
+    const access = await app.client.oauth.v2.access({
       client_secret: process.env.SLACK_CLIENT_SECRET,
       client_id: process.env.SLACK_CLIENT_ID,
       code: query.code,
     });
+    console.log({ access });
 
-    console.log({ auth });
-    res.json(auth);
+    const auth = await Auth.create({
+      teamId: access.team.id,
+      botToken: access.access_token,
+      botId: access.app_id,
+      botUserId: access.bot_user_id,
+    });
+
+    res.json({ ok: true });
   } catch (ex) {
     console.error({ ex });
+
     res.status(403).json(ex.data);
   }
 });
@@ -314,27 +318,43 @@ app.action("open_vote", async ({ action, body, client, ack, context }) => {
 
 app.action(
   "toggle_view",
-  async ({ action, body, client, ack, respond, context }) => {
+  async ({ action, body, client, ack, respond, context, logger }) => {
     const { user, channel } = body;
 
     await ack();
 
-    const story = await context.toggleStoryShowVotes(action.value);
-    const members = await client.conversations.members({ channel: channel.id });
+    try {
+      const story = await context.toggleStoryShowVotes(action.value);
+      const members = await client.conversations.members({
+        channel: channel.id,
+      });
 
-    await respond(message(story, members, user.id));
+      await respond(message(story, members, user.id));
+    } catch (ex) {
+      logger.error(ex);
+      await respond(ex.message);
+    }
   }
 );
 
-app.command("/point-story", async ({ command, ack, say, client, context }) => {
-  const { channel_id, user_id, text } = command;
+app.command(
+  "/point-story",
+  async ({ command, ack, say, respond, client, context, logger }) => {
+    const { channel_id, user_id, text } = command;
 
-  await ack();
+    await ack();
 
-  const members = await client.conversations.members({ channel: channel_id });
-  const story = await context.createStory(channel_id, user_id, text);
-
-  await say(message(story, members));
-});
+    try {
+      const members = await client.conversations.members({
+        channel: channel_id,
+      });
+      const story = await context.createStory(channel_id, user_id, text);
+      await say(message(story, members));
+    } catch (ex) {
+      logger.error(ex);
+      await respond(ex.message);
+    }
+  }
+);
 
 module.exports = app;
