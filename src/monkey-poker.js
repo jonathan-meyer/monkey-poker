@@ -1,21 +1,25 @@
 require("dotenv").config();
 
-const { exec } = require("child_process");
 const { App, LogLevel } = require("@slack/bolt");
 
 const Story = require("./Story");
 
 const app = new App({
-  token: process.env.SLACK_TOKEN_BOT,
   signingSecret: process.env.SLACK_SIGNING_SECRET,
   logLevel: LogLevel.DEBUG,
   convoStore: {
     set: () => Promise.resolve(),
     get: () => Promise.resolve({}),
   },
-  authorize: ({ teamId, enterpriseId }) => {
-    console.log({ teamId, enterpriseId });
-    return {};
+  authorize: async ({ teamId, enterpriseId, userId, conversationId }) => {
+    console.log({ teamId, enterpriseId, userId, conversationId });
+
+    return {
+      teamId,
+      botToken: process.env.SLACK_TOKEN_BOT,
+      botId: null,
+      botUserId: null,
+    };
   },
 });
 
@@ -184,15 +188,24 @@ app.error((error) => {
   console.error("global", { error });
 });
 
-app.receiver.app.use("/install", (req, res, next) => {
+app.receiver.app.use("/install", async (req, res, next) => {
   const { headers, query } = req;
 
-  console.log({
-    headers,
-    query,
-  });
+  console.log({ headers, query });
 
-  next();
+  try {
+    const auth = await app.client.oauth.access({
+      client_secret: process.env.SLACK_CLIENT_SECRET,
+      client_id: process.env.SLACK_CLIENT_ID,
+      code: query.code,
+    });
+
+    console.log({ auth });
+    res.json(auth);
+  } catch (ex) {
+    console.error({ ex });
+    res.status(403).json(ex.data);
+  }
 });
 
 app.receiver.app.use((req, res, next) => {
@@ -204,8 +217,6 @@ app.receiver.app.use((req, res, next) => {
         "https://slack.com/oauth/v2/authorize?client_id=28070123121.1071205540464&scope=channels:read,chat:write,chat:write.public,commands,groups:read,users.profile:read,users:read,app_mentions:read,reactions:read&user_scope=channels:read,identify,users.profile:read,users:read,users:read.email,chat:write",
     },
   });
-
-  next();
 });
 
 app.use(async ({ context, next, logger }) => {
