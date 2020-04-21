@@ -1,0 +1,9 @@
+language: node_js
+
+node_js:
+  - "node"
+  - "lts/*"
+
+notifications:
+  email:
+    on_failure: github@stejsoftware.com
