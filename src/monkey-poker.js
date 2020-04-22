@@ -8,7 +8,7 @@ const Auth = require("./Auth");
 
 const app = new App({
   signingSecret: process.env.SLACK_SIGNING_SECRET,
-  logLevel: LogLevel.DEBUG,
+  logLevel: process.env.SLACK_DEBUG === "yes" ? LogLevel.DEBUG : LogLevel.INFO,
   convoStore: {
     set: () => Promise.resolve(),
     get: () => Promise.resolve({}),
