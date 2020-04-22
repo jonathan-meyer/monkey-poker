@@ -12,10 +12,8 @@ const app = new App({
     set: () => Promise.resolve(),
     get: () => Promise.resolve({}),
   },
-  authorize: async ({ teamId, enterpriseId, userId, conversationId }) => {
-    console.log({ teamId, enterpriseId, userId, conversationId });
+  authorize: async ({ teamId }) => {
     const { botToken, botId, botUserId } = await Auth.findOne({ teamId });
-
     return { botToken, botId, botUserId };
   },
 });
@@ -44,17 +42,12 @@ const toggleViewButton = (storyId, showVotes) => {
   return button;
 };
 
-const message = (
-  { _id, userId, storyText, show_votes, votes },
-  { members }
-) => {
-  const members_votes = Object.entries({
-    ...members.reduce((p, c) => ({ ...p, [c]: null }), {}),
-    ...votes.reduce((p, c) => ({ ...p, [c.userId]: c.value }), {}),
-  });
+const message = ({ _id, userId, storyText, show_votes, votes }) => {
+  const members_votes = Object.entries(
+    votes.reduce((p, c) => ({ ...p, [c.userId]: c.value }), {})
+  );
 
-  const all_voted = members_votes.reduce((p, c) => c[1] != null && p, true);
-  const two_voted = members_votes.filter((v) => v[1] != null) >= 2;
+  const two_voted = members_votes.filter((v) => v[1] != null).length >= 2;
 
   return {
     text: `Time to point a story.`,
@@ -85,28 +78,29 @@ const message = (
               text: `Point Story`,
             },
           },
-          all_voted || two_voted
-            ? toggleViewButton(_id, show_votes)
-            : undefined,
+          two_voted ? toggleViewButton(_id, show_votes) : undefined,
         ].filter((e) => e),
       },
       {
         type: "section",
-        block_id: "members",
+        block_id: "votes",
         text: {
           type: "mrkdwn",
-          text: members_votes
-            .map(
-              ([id, vote]) =>
-                `<@${id}> (${
-                  vote
-                    ? show_votes
-                      ? vote
-                      : ":heavy_check_mark:"
-                    : ":question:"
-                })`
-            )
-            .join(" | "),
+          text:
+            members_votes.length > 0
+              ? members_votes
+                  .map(
+                    ([id, vote]) =>
+                      `<@${id}> (${
+                        vote
+                          ? show_votes
+                            ? vote
+                            : ":heavy_check_mark:"
+                          : ":question:"
+                      })`
+                  )
+                  .join(" | ")
+              : ":ballot_box_with_ballot:",
         },
       },
     ],
@@ -207,8 +201,6 @@ app.receiver.app.use("/install", async (req, res, next) => {
       })
       .save();
 
-    console.log({ auth });
-
     res.redirect(`https://slack.com/apps/${access.app_id}`);
   } catch (ex) {
     console.error({ ex });
@@ -225,6 +217,21 @@ app.receiver.app.use((req, res, next) => {
       src: "https://github.com/jonathan-meyer/monkey-poker",
     },
   });
+});
+
+app.use(async ({ payload, context, next, client, ack, respond }) => {
+  try {
+    console.log({ payload });
+    if (payload.channel_id) {
+      await client.conversations.info({ channel: payload.channel_id });
+    }
+    await next();
+  } catch (ex) {
+    await ack();
+    await respond(
+      `I need to be added to this channel first. \`/invite <@${context.botUserId}>\``
+    );
+  }
 });
 
 app.use(async ({ context, next, logger }) => {
@@ -303,12 +310,9 @@ app.view("story-point-modal", async ({ view, body, client, ack, context }) => {
 
   try {
     const story = await context.updateStoryVote(story_id, vote);
-    const channel = story.channelId;
-    const members = await client.conversations.members({ channel });
-
     await client.chat.update({
-      ...{ channel, ts },
-      ...message(story, members, body.user.id),
+      ...{ channel: story.channelId, ts },
+      ...message(story),
     });
   } catch (ex) {
     logger.error(ex);
@@ -330,42 +334,28 @@ app.action("open_vote", async ({ action, body, client, ack, context }) => {
   }
 });
 
-app.action(
-  "toggle_view",
-  async ({ action, body, client, ack, respond, context, logger }) => {
-    const { user, channel } = body;
+app.action("toggle_view", async ({ action, ack, respond, context, logger }) => {
+  await ack();
 
-    await ack();
-
-    try {
-      const story = await context.toggleStoryShowVotes(action.value);
-      const members = await client.conversations.members({
-        channel: channel.id,
-      });
-
-      await respond(message(story, members, user.id));
-    } catch (ex) {
-      logger.error(ex);
-      await respond(ex.message);
-    }
+  try {
+    const story = await context.toggleStoryShowVotes(action.value);
+    await respond(message(story));
+  } catch (ex) {
+    logger.error(ex);
+    await respond(ex.message);
   }
-);
+});
 
 app.command(
   "/point-story",
-  async ({ command, ack, say, respond, client, context, logger }) => {
+  async ({ command, ack, say, respond, context, logger }) => {
     const { channel_id, user_id, text } = command;
-
-    logger.debug({ command });
 
     await ack();
 
     try {
-      const members = await client.conversations.members({
-        channel: channel_id,
-      });
       const story = await context.createStory(channel_id, user_id, text);
-      await say(message(story, members));
+      await say(message(story));
     } catch (ex) {
       logger.error(ex);
       await respond(ex.message);
