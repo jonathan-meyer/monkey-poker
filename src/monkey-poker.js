@@ -1,5 +1,6 @@
 require("dotenv").config();
 
+const path = require("path");
 const { App, LogLevel } = require("@slack/bolt");
 
 const Story = require("./Story");
@@ -179,7 +180,7 @@ app.error((error) => {
   console.error("global", { error });
 });
 
-app.receiver.app.use("/install", async (req, res, next) => {
+app.receiver.app.post("/install", async (req, res, next) => {
   const { query } = req;
   console.log({ query });
 
@@ -210,13 +211,7 @@ app.receiver.app.use("/install", async (req, res, next) => {
 });
 
 app.receiver.app.use((req, res, next) => {
-  res.status(404).json({
-    error: {
-      message: "This is a slack app.",
-      url: "https://slack.com/apps/A012361FWDN",
-      src: "https://github.com/jonathan-meyer/monkey-poker",
-    },
-  });
+  res.sendFile(path.resolve("public/index.html"));
 });
 
 app.use(async ({ payload, context, next, client, ack, respond }) => {
