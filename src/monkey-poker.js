@@ -180,7 +180,7 @@ app.error((error) => {
   console.error("global", { error });
 });
 
-app.receiver.app.post("/install", async (req, res, next) => {
+app.receiver.app.get("/install", async (req, res, next) => {
   const { query } = req;
   console.log({ query });
 
