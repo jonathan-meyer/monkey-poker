@@ -182,7 +182,6 @@ app.error((error) => {
 
 app.receiver.app.get("/install", async (req, res, next) => {
   const { query } = req;
-  console.log({ query });
 
   try {
     const access = await app.client.oauth.v2.access({
@@ -205,18 +204,16 @@ app.receiver.app.get("/install", async (req, res, next) => {
     res.redirect(`https://slack.com/apps/${access.app_id}`);
   } catch (ex) {
     console.error({ ex });
-
     res.status(403).json(ex.data);
   }
 });
 
-app.receiver.app.use((req, res, next) => {
-  res.sendFile(path.resolve("public/index.html"));
-});
+app.receiver.app.use((req, res, next) =>
+  res.sendFile(path.resolve("public/index.html"))
+);
 
 app.use(async ({ payload, context, next, client, ack, respond }) => {
   try {
-    console.log({ payload });
     if (payload.channel_id) {
       await client.conversations.info({ channel: payload.channel_id });
     }
