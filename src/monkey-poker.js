@@ -169,7 +169,7 @@ const dialog = (
               .filter((vote) => vote.userId === user_id)
               .reduce((p, c) => c.value, undefined)
           ),
-          options: [0, 0.5, 1, 2, 3, 5, 13, 20, 40, 100].map(option),
+          options: [0, 0.5, 1, 2, 3, 5, 8, 13, 20, 40, 100].map(option),
         },
       },
     ],
