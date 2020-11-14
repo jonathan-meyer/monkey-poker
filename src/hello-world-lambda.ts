@@ -1,4 +1,4 @@
-const axios = require("axios");
+import axios from "axios";
 
 const url = "http://checkip.amazonaws.com/";
 // const url = "https://postman-echo.com/get";

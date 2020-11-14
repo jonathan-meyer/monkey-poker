@@ -2,30 +2,42 @@
   "name": "monkey-poker",
   "version": "1.0.0",
   "description": "Agile Planning Poker App",
-  "main": "src/monkey-poker-server.js",
+  "main": "dist/monkey-poker-server.js",
   "scripts": {
     "start": "node .",
-    "test": "mocha tests/unit/"
+    "dev": "tsc --watch",
+    "test": "jest --coverage",
+    "clean": "rimraf dist coverage",
+    "prebuild": "rimraf dist",
+    "build": "tsc"
   },
   "author": "Jonathan Meyer",
   "license": "ISC",
   "engines": {
-    "node": "~10"
+    "node": "~10",
+    "npm": "6.x"
   },
   "dependencies": {
-    "@slack/bolt": "^2.0.1",
-    "@slack/events-api": "^2.3.2",
-    "@slack/interactive-messages": "^1.5.0",
-    "@slack/web-api": "^5.8.0",
+    "@slack/bolt": "^2.4.1",
+    "@slack/events-api": "^2.3.4",
+    "@slack/interactive-messages": "^1.7.0",
+    "@slack/web-api": "^5.13.0",
     "axios": "^0.19.2",
     "dotenv": "^8.2.0",
     "express": "^4.17.1",
-    "mongoose": "^5.9.9",
+    "mongoose": "^5.10.14",
     "morgan": "^1.10.0"
   },
   "devDependencies": {
-    "chai": "^4.2.0",
-    "mocha": "^6.1.4"
+    "@babel/core": "^7.12.3",
+    "@babel/preset-env": "^7.12.1",
+    "@babel/preset-typescript": "^7.12.1",
+    "@types/jest": "^26.0.15",
+    "@types/mongoose": "^5.10.0",
+    "@types/node": "^14.14.6",
+    "babel-jest": "^26.6.3",
+    "jest": "^26.6.3",
+    "typescript": "^4.0.5"
   },
   "repository": {
     "type": "git",

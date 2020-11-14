@@ -1,10 +1,10 @@
-require("dotenv").config();
+import { App, LogLevel } from "@slack/bolt";
+import { config } from "dotenv";
+import path from "path";
+import Auth from "./Auth";
+import Story from "./Story";
 
-const path = require("path");
-const { App, LogLevel } = require("@slack/bolt");
-
-const Story = require("./Story");
-const Auth = require("./Auth");
+config();
 
 const app = new App({
   signingSecret: process.env.SLACK_SIGNING_SECRET,
@@ -31,8 +31,8 @@ const toggleViewButton = (storyId, showVotes) => {
   };
 
   if (!showVotes) {
-    button.style = "danger";
-    button.confirm = {
+    button["style"] = "danger";
+    button["confirm"] = {
       title: { type: "plain_text", text: "Show all Points?" },
       text: { type: "plain_text", text: "Are you sure?" },
       confirm: { type: "plain_text", text: "Yes" },
@@ -290,41 +290,47 @@ app.use(async ({ context, next, logger }) => {
   await next();
 });
 
-app.view("story-point-modal", async ({ view, body, client, ack, context }) => {
-  const { story_id, ts } = JSON.parse(view.private_metadata);
+app.view(
+  "story-point-modal",
+  async ({ view, body, client, ack, context, logger, respond }) => {
+    const { story_id, ts } = JSON.parse(view.private_metadata);
 
-  const vote = {
-    userId: body.user.id,
-    value: view.state.values.points.vote.selected_option.value,
-  };
+    const vote = {
+      userId: body.user.id,
+      value: view.state.values.points.vote.selected_option.value,
+    };
 
-  await ack();
+    await ack();
 
-  try {
-    const story = await context.updateStoryVote(story_id, vote);
-    await client.chat.update({
-      ...{ channel: story.channelId, ts },
-      ...message(story),
-    });
-  } catch (ex) {
-    logger.error(ex);
-    await respond(ex.message);
+    try {
+      const story = await context.updateStoryVote(story_id, vote);
+      await client.chat.update({
+        ...{ channel: story.channelId, ts },
+        ...message(story),
+      });
+    } catch (ex) {
+      logger.error(ex);
+      await respond(ex.message);
+    }
   }
-});
+);
 
-app.action("open_vote", async ({ action, body, client, ack, context }) => {
-  const { trigger_id, message, user } = body;
+app.action(
+  "open_vote",
+  async ({ action, body, client, ack, context, logger, respond }) => {
+    const { trigger_id, message, user } = body;
 
-  await ack();
+    await ack();
 
-  try {
-    const story = await context.getStory(action.value);
-    await client.views.open(dialog(trigger_id, story, message.ts, user.id));
-  } catch (ex) {
-    logger.error(ex);
-    await respond(ex.message);
+    try {
+      const story = await context.getStory(action.value);
+      await client.views.open(dialog(trigger_id, story, message.ts, user.id));
+    } catch (ex) {
+      logger.error(ex);
+      await respond(ex.message);
+    }
   }
-});
+);
 
 app.action("toggle_view", async ({ action, ack, respond, context, logger }) => {
   await ack();
@@ -355,4 +361,4 @@ app.command(
   }
 );
 
-module.exports = app;
+export default app;
