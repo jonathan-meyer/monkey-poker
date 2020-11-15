@@ -1,13 +1,18 @@
-import { App, LogLevel } from "@slack/bolt";
+import { App, ExpressReceiver, LogLevel } from "@slack/bolt";
 import { config } from "dotenv";
-import path from "path";
+import { resolve } from "path";
+import { inspect } from "util";
 import Auth from "./Auth";
 import Story from "./Story";
+import { IVote } from "./Vote";
 
 config();
 
-const app = new App({
+const receiver = new ExpressReceiver({
   signingSecret: process.env.SLACK_SIGNING_SECRET,
+});
+
+const app = new App({
   logLevel: process.env.SLACK_DEBUG === "yes" ? LogLevel.DEBUG : LogLevel.INFO,
   convoStore: {
     set: () => Promise.resolve(),
@@ -17,9 +22,10 @@ const app = new App({
     const { botToken, botId, botUserId } = await Auth.findOne({ teamId });
     return { botToken, botId, botUserId };
   },
+  receiver,
 });
 
-const toggleViewButton = (storyId, showVotes) => {
+const toggleViewButton = (storyId: string, showVotes: boolean) => {
   const button = {
     type: "button",
     action_id: `toggle_view`,
@@ -176,19 +182,24 @@ const dialog = (
   },
 });
 
-app.error((error) => {
-  console.error("global", { error });
+receiver.router.use("/stats", (req, res, next) => {
+  console.log("/stats");
+  res.json({});
 });
 
-app.receiver.app.get("/install", async (req, res, next) => {
+receiver.router.get("/install", async (req, res, next) => {
   const { query } = req;
+
+  console.log({ query });
 
   try {
     const access = await app.client.oauth.v2.access({
       client_secret: process.env.SLACK_CLIENT_SECRET,
       client_id: process.env.SLACK_CLIENT_ID,
-      code: query.code,
+      code: query.code as string,
     });
+
+    console.log({ access });
 
     const auth = (await Auth.findOne({ teamId: access.team.id })) || new Auth();
 
@@ -208,11 +219,16 @@ app.receiver.app.get("/install", async (req, res, next) => {
   }
 });
 
-app.receiver.app.use((req, res, next) =>
-  res.sendFile(path.resolve("public/index.html"))
+receiver.router.use((req, res, next) =>
+  res.sendFile(resolve("public/index.html"))
 );
 
-app.use(async ({ payload, context, next, client, ack, respond }) => {
+app.use(async ({ payload, next }) => {
+  console.log({ payload });
+  await next();
+});
+
+app.use(async ({ payload, context, next, client, ack, respond, say }) => {
   try {
     if (payload.channel_id) {
       await client.conversations.info({ channel: payload.channel_id });
@@ -251,7 +267,7 @@ app.use(async ({ context, next, logger }) => {
         .catch(reject);
     });
 
-  context.updateStoryVote = (storyId, vote) =>
+  context.updateStoryVote = (storyId: string, vote: IVote) =>
     new Promise((resolve, reject) => {
       logger.debug({ updateStoryVote: { storyId, vote } });
 
@@ -269,7 +285,7 @@ app.use(async ({ context, next, logger }) => {
         .catch(reject);
     });
 
-  context.toggleStoryShowVotes = (storyId) =>
+  context.toggleStoryShowVotes = (storyId: string) =>
     new Promise((resolve, reject) => {
       logger.debug({ toggleStoryShowVotes: { storyId } });
 
@@ -360,5 +376,9 @@ app.command(
     }
   }
 );
+
+app.message(async (args) => {
+  console.log(inspect(args, { colors: true, depth: 0 }));
+});
 
 export default app;

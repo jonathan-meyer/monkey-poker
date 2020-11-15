@@ -1,11 +1,10 @@
 {
   "compilerOptions": {
     "module": "CommonJS",
-    "target": "ES6",
-    "lib": ["ES2019", "DOM"],
+    "target": "ES5",
+    "lib": ["ES2019", "ES5", "DOM"],   
     "declaration": true,
     "outDir": "dist",
-    "rootDir": "src",
     "sourceMap": false,
     "moduleResolution": "Node",
     "allowJs": true,

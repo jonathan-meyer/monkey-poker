@@ -8,7 +8,10 @@ export const VoteSchema = new Schema(
   { timestamps: true }
 );
 
-export interface IVote {}
+export interface IVote {
+  userId: string;
+  value: string;
+}
 
 export interface IVoteDocument extends IVote, Document {}
 export interface IVoteModel extends Model<IVoteDocument> {}

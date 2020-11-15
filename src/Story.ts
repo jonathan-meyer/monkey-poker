@@ -1,5 +1,5 @@
 import { Document, model, Model, Schema } from "mongoose";
-import { VoteSchema } from "./Vote";
+import { IVote, VoteSchema } from "./Vote";
 
 export const StorySchema = new Schema(
   {
@@ -12,7 +12,13 @@ export const StorySchema = new Schema(
   { timestamps: true }
 );
 
-export interface IStory {}
+export interface IStory {
+  channelId: string;
+  userId: string;
+  storyText: string;
+  show_votes?: boolean;
+  votes?: IVote[];
+}
 
 export interface IStoryDocument extends IStory, Document {}
 export interface IStoryModel extends Model<IStoryDocument> {}
