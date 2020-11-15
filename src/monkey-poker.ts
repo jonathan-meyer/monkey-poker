@@ -2,9 +2,9 @@ import { App, ExpressReceiver, LogLevel } from "@slack/bolt";
 import { config } from "dotenv";
 import { resolve } from "path";
 import { inspect } from "util";
-import Auth from "./Auth";
-import Story from "./Story";
-import { IVote } from "./Vote";
+import Auth from "./model/Auth";
+import Story from "./model/Story";
+import { IVote } from "./model/Vote";
 
 config();
 
