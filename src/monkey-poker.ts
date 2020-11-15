@@ -1,4 +1,5 @@
 import { App, ExpressReceiver, LogLevel } from "@slack/bolt";
+import { Option, ViewsOpenArguments } from "@slack/web-api";
 import { config } from "dotenv";
 import { resolve } from "path";
 import { inspect } from "util";
@@ -114,23 +115,20 @@ const message = ({ _id, userId, storyText, show_votes, votes }) => {
   };
 };
 
-const option = (value) =>
-  value != undefined
-    ? {
-        text: {
-          type: "mrkdwn",
-          text: `${value}`,
-        },
-        value: `${value}`,
-      }
-    : undefined;
+const option = (value: string | number): Option => ({
+  text: {
+    type: "mrkdwn",
+    text: `${value || ""}`,
+  },
+  value: `${value || ""}`,
+});
 
 const dialog = (
-  trigger_id,
+  trigger_id: string,
   { _id, storyText, votes, channelId },
-  ts,
-  user_id
-) => ({
+  ts: string,
+  user_id: string
+): ViewsOpenArguments => ({
   trigger_id,
   view: {
     type: "modal",
@@ -175,7 +173,7 @@ const dialog = (
               .filter((vote) => vote.userId === user_id)
               .reduce((p, c) => c.value, undefined)
           ),
-          options: [0, 1, 2, 3, 5, 8, 13, 20, 40, 100].map(option),
+          options: [0, 1, 2, 3, 5, 8, 13, 20, 40, 100].map((n) => option(n)),
         },
       },
     ],
@@ -201,11 +199,12 @@ receiver.router.get("/install", async (req, res, next) => {
 
     console.log({ access });
 
-    const auth = (await Auth.findOne({ teamId: access.team.id })) || new Auth();
+    const auth =
+      (await Auth.findOne({ teamId: access.team["id"] })) || new Auth();
 
     await auth
       .overwrite({
-        teamId: access.team.id,
+        teamId: access.team["id"],
         botToken: access.access_token,
         botId: access.app_id,
         botUserId: access.bot_user_id,
@@ -223,23 +222,24 @@ receiver.router.use((req, res, next) =>
   res.sendFile(resolve("public/index.html"))
 );
 
-app.use(async ({ payload, next }) => {
-  console.log({ payload });
-  await next();
-});
+app.use(async (args) => {
+  const { payload, next, client, logger } = args;
 
-app.use(async ({ payload, context, next, client, ack, respond, say }) => {
+  console.log(inspect({ payload }, { colors: true, depth: 1 }));
+
   try {
-    if (payload.channel_id) {
-      await client.conversations.info({ channel: payload.channel_id });
+    if (payload["channel_id"]) {
+      await client.conversations.info({ channel: payload["channel_id"] });
+      // } else {
+      //   await respond(
+      //     `I need to be added to this channel first. \`/invite <@${context.botUserId}>\``
+      //   );
     }
-    await next();
   } catch (ex) {
-    await ack();
-    await respond(
-      `I need to be added to this channel first. \`/invite <@${context.botUserId}>\``
-    );
+    logger.error(ex.message);
   }
+
+  await next();
 });
 
 app.use(async ({ context, next, logger }) => {
@@ -308,7 +308,7 @@ app.use(async ({ context, next, logger }) => {
 
 app.view(
   "story-point-modal",
-  async ({ view, body, client, ack, context, logger, respond }) => {
+  async ({ view, body, client, ack, context, logger }) => {
     const { story_id, ts } = JSON.parse(view.private_metadata);
 
     const vote = {
@@ -325,34 +325,31 @@ app.view(
         ...message(story),
       });
     } catch (ex) {
-      logger.error(ex);
-      await respond(ex.message);
+      logger.error(ex.message);
     }
   }
 );
 
-app.action(
-  "open_vote",
-  async ({ action, body, client, ack, context, logger, respond }) => {
-    const { trigger_id, message, user } = body;
+app.action("open_vote", async (args) => {
+  const { action, body, client, ack, context, logger, respond } = args;
+  const { user } = body;
 
-    await ack();
+  await ack();
 
-    try {
-      const story = await context.getStory(action.value);
-      await client.views.open(dialog(trigger_id, story, message.ts, user.id));
-    } catch (ex) {
-      logger.error(ex);
-      await respond(ex.message);
-    }
+  try {
+    const story = await context.getStory(action["value"]);
+    await client.views.open(dialog("trigger_id", story, "message.ts", user.id));
+  } catch (ex) {
+    logger.error(ex);
+    await respond(ex.message);
   }
-);
+});
 
 app.action("toggle_view", async ({ action, ack, respond, context, logger }) => {
   await ack();
 
   try {
-    const story = await context.toggleStoryShowVotes(action.value);
+    const story = await context.toggleStoryShowVotes(action["value"]);
     await respond(message(story));
   } catch (ex) {
     logger.error(ex);
@@ -377,8 +374,17 @@ app.command(
   }
 );
 
-app.message(async (args) => {
-  console.log(inspect(args, { colors: true, depth: 0 }));
+// respond to hellos
+app.message(/hello/i, async (args) => {
+  const { message, say, logger } = args;
+
+  console.log(inspect({ message }, { colors: true, depth: null }));
+
+  try {
+    await say("Hello Back!");
+  } catch (ex) {
+    logger.error(ex.message);
+  }
 });
 
 export default app;
