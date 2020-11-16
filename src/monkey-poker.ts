@@ -3,7 +3,7 @@ import { config } from "dotenv";
 import { inspect } from "util";
 import { apiRouter } from "./api";
 import Auth from "./model/Auth";
-import Story from "./model/Story";
+import Story, { IStory } from "./model/Story";
 import { IVote } from "./model/Vote";
 import { dialog, message } from "./slack";
 
@@ -33,12 +33,17 @@ receiver.router.use(apiRouter(app));
 app.use(async (args) => {
   const { payload, context, next, client, logger } = args;
 
-  console.log(inspect({ payload }, { colors: true, depth: 1 }));
-  console.log(inspect({ context }, { colors: true, depth: 1 }));
+  logger.debug(inspect({ payload }, { colors: true, depth: 1 }));
+  logger.debug(inspect({ context }, { colors: true, depth: 1 }));
 
   try {
     if (payload["channel_id"]) {
-      await client.conversations.info({ channel: payload["channel_id"] });
+      const info = await client.conversations.info({
+        channel: payload["channel_id"],
+      });
+
+      logger.debug(info);
+
       // } else {
       //   await respond(
       //     `I need to be added to this channel first. \`/invite <@${context.botUserId}>\``
@@ -51,108 +56,52 @@ app.use(async (args) => {
   await next();
 });
 
-app.use(async ({ context, next, logger }) => {
-  console.log(inspect({ context }, { colors: true, depth: 1 }));
+const createStory = async (story: IStory) => await Story.create(story);
+
+const getStory = async (storyId: string) => await Story.findById(storyId);
+
+const updateStoryVote = async (storyId: string, vote: IVote) =>
+  await Story.findById(storyId).then((story) => {
+    story.votes.push(vote);
+    return story.save();
+  });
+
+const toggleStoryShowVotes = async (storyId: string) =>
+  await Story.findById(storyId).then((story) => {
+    story.show_votes = !story.show_votes;
+    return story.save();
+  });
+
+app.view("story-point-modal", async (args) => {
+  const { view, body, client, ack, context, logger } = args;
+  const { story_id, ts } = JSON.parse(view.private_metadata);
+
+  const vote = {
+    userId: body.user.id,
+    value: view.state.values.points.vote.selected_option.value,
+  };
+
+  await ack();
 
   try {
-    context.createStory = (channelId, userId, storyText) =>
-      new Promise((resolve, reject) => {
-        logger.debug({ createStory: { channelId, userId, storyText } });
-
-        Story.create({ channelId, userId, storyText })
-          .then((story) => {
-            logger.debug({ story });
-            resolve(story);
-          })
-          .catch(reject);
-      });
-
-    context.getStory = (storyId) =>
-      new Promise((resolve, reject) => {
-        logger.debug({ getStory: { storyId } });
-
-        Story.findById(storyId)
-          .then((story) => {
-            logger.debug({ story });
-            resolve(story);
-          })
-          .catch(reject);
-      });
-
-    context.updateStoryVote = (storyId: string, vote: IVote) =>
-      new Promise((resolve, reject) => {
-        logger.debug({ updateStoryVote: { storyId, vote } });
-
-        Story.findById(storyId)
-          .then((story) => {
-            story.votes.push(vote);
-            story
-              .save()
-              .then(() => {
-                logger.debug({ story });
-                resolve(story);
-              })
-              .catch(reject);
-          })
-          .catch(reject);
-      });
-
-    context.toggleStoryShowVotes = (storyId: string) =>
-      new Promise((resolve, reject) => {
-        logger.debug({ toggleStoryShowVotes: { storyId } });
-
-        Story.findById(storyId)
-          .then((story) => {
-            story.show_votes = !story.show_votes;
-            story
-              .save()
-              .then(() => {
-                logger.debug({ story });
-                resolve(story);
-              })
-              .catch(reject);
-          })
-          .catch(reject);
-      });
+    const story = await updateStoryVote(story_id, vote);
+    await client.chat.update({
+      ...{ channel: story.channelId, ts },
+      ...message(story),
+    });
   } catch (ex) {
     logger.error(ex.message);
   }
-
-  await next();
 });
 
-app.view(
-  "story-point-modal",
-  async ({ view, body, client, ack, context, logger }) => {
-    const { story_id, ts } = JSON.parse(view.private_metadata);
-
-    const vote = {
-      userId: body.user.id,
-      value: view.state.values.points.vote.selected_option.value,
-    };
-
-    await ack();
-
-    try {
-      const story = await context.updateStoryVote(story_id, vote);
-      await client.chat.update({
-        ...{ channel: story.channelId, ts },
-        ...message(story),
-      });
-    } catch (ex) {
-      logger.error(ex.message);
-    }
-  }
-);
-
 app.action("open_vote", async (args) => {
-  const { action, body, client, ack, context, logger, respond } = args;
+  const { action, body, client, ack, logger, respond } = args;
   const { user } = body;
 
   await ack();
 
   try {
-    const story = await context.getStory(action["value"]);
+    const story = await getStory(action["value"]);
     await client.views.open(dialog("trigger_id", story, "message.ts", user.id));
   } catch (ex) {
     logger.error(ex.message);
@@ -160,11 +109,13 @@ app.action("open_vote", async (args) => {
   }
 });
 
-app.action("toggle_view", async ({ action, ack, respond, context, logger }) => {
+app.action("toggle_view", async (args) => {
+  const { action, ack, respond, context, logger } = args;
+
   await ack();
 
   try {
-    const story = await context.toggleStoryShowVotes(action["value"]);
+    const story = await toggleStoryShowVotes(action["value"]);
     await respond(message(story));
   } catch (ex) {
     logger.error(ex.message);
@@ -172,28 +123,27 @@ app.action("toggle_view", async ({ action, ack, respond, context, logger }) => {
   }
 });
 
-app.command(
-  "/point-story",
-  async ({ command, ack, say, respond, context, logger }) => {
-    const { channel_id, user_id, text } = command;
+app.command("/point-story", async (args) => {
+  const { command, ack, say, respond, context, logger } = args;
+  const { channel_id, user_id, text } = command;
 
-    await ack();
+  await ack();
 
-    try {
-      const story = await context.createStory(channel_id, user_id, text);
-      logger.debug({ story });
-      await say(message(story));
-    } catch (ex) {
-      logger.error(ex.message);
-      await respond(ex.message);
-    }
+  try {
+    const story = await createStory({
+      channelId: channel_id,
+      userId: user_id,
+      storyText: text,
+    });
+    await say(message(story));
+  } catch (ex) {
+    logger.error(ex.message);
+    await respond(ex.message);
   }
-);
+});
 
-// respond to hellos
 app.message(/hello/i, async (args) => {
   const { message, say, logger } = args;
-  logger.debug(inspect({ message }, { colors: true, depth: null }));
 
   try {
     await say("Hello Back!");

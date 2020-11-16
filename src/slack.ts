@@ -1,4 +1,5 @@
 import { Option, ViewsOpenArguments } from "@slack/web-api";
+import { IStoryDocument } from "./model/Story";
 
 export const toggleViewButton = (storyId: string, showVotes: boolean) => {
   const button = {
@@ -24,7 +25,8 @@ export const toggleViewButton = (storyId: string, showVotes: boolean) => {
   return button;
 };
 
-export const message = ({ _id, userId, storyText, show_votes, votes }) => {
+export const message = (story: IStoryDocument) => {
+  const { _id, userId, storyText, show_votes, votes } = story;
   const members_votes = Object.entries(
     votes.reduce((p, c) => ({ ...p, [c.userId]: c.value }), {})
   );
@@ -99,7 +101,7 @@ export const option = (value: string | number): Option => ({
 
 export const dialog = (
   trigger_id: string,
-  { _id, storyText, votes, channelId },
+  story: IStoryDocument,
   ts: string,
   user_id: string
 ): ViewsOpenArguments => ({
@@ -107,7 +109,7 @@ export const dialog = (
   view: {
     type: "modal",
     callback_id: "story-point-modal",
-    private_metadata: JSON.stringify({ ts, story_id: _id }),
+    private_metadata: JSON.stringify({ ts, story_id: story._id }),
     title: {
       type: "plain_text",
       text: "Point This Story",
@@ -129,7 +131,7 @@ export const dialog = (
         block_id: "story",
         text: {
           type: "mrkdwn",
-          text: `_"${storyText}"_`,
+          text: `_"${story.storyText}"_`,
         },
       },
       {
@@ -143,9 +145,9 @@ export const dialog = (
           type: "radio_buttons",
           action_id: "vote",
           initial_option: option(
-            votes
+            story.votes
               .filter((vote) => vote.userId === user_id)
-              .reduce((p, c) => c.value, undefined)
+              .reduce((p, c) => c.value, "")
           ),
           options: [0, 1, 2, 3, 5, 8, 13, 20, 40, 100].map((n) => option(n)),
         },
