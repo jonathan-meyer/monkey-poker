@@ -1,20 +1,30 @@
 import { App, ExpressReceiver, LogLevel } from "@slack/bolt";
-import { Option, ViewsOpenArguments } from "@slack/web-api";
 import { config } from "dotenv";
 import { resolve } from "path";
 import { inspect } from "util";
 import Auth from "./model/Auth";
 import Story from "./model/Story";
 import { IVote } from "./model/Vote";
+import { dialog, message } from "./slack";
+import handlebars from "handlebars";
+import { readFileSync } from "fs";
 
 config();
 
+const {
+  SLACK_SIGNING_SECRET,
+  SLACK_DEBUG,
+  SLACK_CLIENT_SECRET,
+  SLACK_CLIENT_ID,
+  SLACK_APP_ID,
+} = process.env;
+
 const receiver = new ExpressReceiver({
-  signingSecret: process.env.SLACK_SIGNING_SECRET,
+  signingSecret: SLACK_SIGNING_SECRET,
 });
 
 const app = new App({
-  logLevel: process.env.SLACK_DEBUG === "yes" ? LogLevel.DEBUG : LogLevel.INFO,
+  logLevel: SLACK_DEBUG === "yes" ? LogLevel.DEBUG : LogLevel.INFO,
   convoStore: {
     set: () => Promise.resolve(),
     get: () => Promise.resolve({}),
@@ -26,161 +36,7 @@ const app = new App({
   receiver,
 });
 
-const toggleViewButton = (storyId: string, showVotes: boolean) => {
-  const button = {
-    type: "button",
-    action_id: `toggle_view`,
-    value: storyId,
-    text: {
-      type: "plain_text",
-      text: showVotes ? "Hide Points" : "Show Points",
-    },
-  };
-
-  if (!showVotes) {
-    button["style"] = "danger";
-    button["confirm"] = {
-      title: { type: "plain_text", text: "Show all Points?" },
-      text: { type: "plain_text", text: "Are you sure?" },
-      confirm: { type: "plain_text", text: "Yes" },
-      deny: { type: "plain_text", text: "No!" },
-    };
-  }
-
-  return button;
-};
-
-const message = ({ _id, userId, storyText, show_votes, votes }) => {
-  const members_votes = Object.entries(
-    votes.reduce((p, c) => ({ ...p, [c.userId]: c.value }), {})
-  );
-
-  const two_voted = members_votes.filter((v) => v[1] != null).length >= 2;
-
-  return {
-    text: `Time to point a story.`,
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `:raising_hand: <@${userId}> has requested the team point this story:`,
-        },
-      },
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `> "_${storyText}"_`,
-        },
-      },
-      {
-        type: "actions",
-        elements: [
-          {
-            type: "button",
-            action_id: `open_vote`,
-            value: _id,
-            text: {
-              type: "plain_text",
-              text: `Point Story`,
-            },
-          },
-          two_voted ? toggleViewButton(_id, show_votes) : undefined,
-        ].filter((e) => e),
-      },
-      {
-        type: "section",
-        block_id: "votes",
-        text: {
-          type: "mrkdwn",
-          text:
-            members_votes.length > 0
-              ? members_votes
-                  .map(
-                    ([id, vote]) =>
-                      `<@${id}> (${
-                        vote
-                          ? show_votes
-                            ? vote
-                            : ":heavy_check_mark:"
-                          : ":question:"
-                      })`
-                  )
-                  .join(" | ")
-              : ":ballot_box_with_ballot:",
-        },
-      },
-    ],
-  };
-};
-
-const option = (value: string | number): Option => ({
-  text: {
-    type: "mrkdwn",
-    text: `${value || ""}`,
-  },
-  value: `${value || ""}`,
-});
-
-const dialog = (
-  trigger_id: string,
-  { _id, storyText, votes, channelId },
-  ts: string,
-  user_id: string
-): ViewsOpenArguments => ({
-  trigger_id,
-  view: {
-    type: "modal",
-    callback_id: "story-point-modal",
-    private_metadata: JSON.stringify({ ts, story_id: _id }),
-    title: {
-      type: "plain_text",
-      text: "Point This Story",
-      emoji: true,
-    },
-    submit: {
-      type: "plain_text",
-      text: "Save",
-      emoji: true,
-    },
-    close: {
-      type: "plain_text",
-      text: "Cancel",
-      emoji: true,
-    },
-    blocks: [
-      {
-        type: "section",
-        block_id: "story",
-        text: {
-          type: "mrkdwn",
-          text: `_"${storyText}"_`,
-        },
-      },
-      {
-        type: "input",
-        block_id: "points",
-        label: {
-          type: "plain_text",
-          text: "Select a point value:",
-        },
-        element: {
-          type: "radio_buttons",
-          action_id: "vote",
-          initial_option: option(
-            votes
-              .filter((vote) => vote.userId === user_id)
-              .reduce((p, c) => c.value, undefined)
-          ),
-          options: [0, 1, 2, 3, 5, 8, 13, 20, 40, 100].map((n) => option(n)),
-        },
-      },
-    ],
-  },
-});
-
-receiver.router.use("/stats", (req, res, next) => {
+receiver.router.get("/stats", (req, res, next) => {
   console.log("/stats");
   res.json({});
 });
@@ -192,8 +48,8 @@ receiver.router.get("/install", async (req, res, next) => {
 
   try {
     const access = await app.client.oauth.v2.access({
-      client_secret: process.env.SLACK_CLIENT_SECRET,
-      client_id: process.env.SLACK_CLIENT_ID,
+      client_secret: SLACK_CLIENT_SECRET,
+      client_id: SLACK_CLIENT_ID,
       code: query.code as string,
     });
 
@@ -218,8 +74,15 @@ receiver.router.get("/install", async (req, res, next) => {
   }
 });
 
-receiver.router.use((req, res, next) =>
-  res.sendFile(resolve("public/index.html"))
+receiver.router.get("/", (req, res, next) =>
+  res.send(
+    handlebars.compile(
+      readFileSync(resolve("public/index.handlebars"), "utf-8")
+    )({
+      SLACK_CLIENT_ID,
+      SLACK_APP_ID,
+    })
+  )
 );
 
 app.use(async (args) => {
@@ -325,7 +188,7 @@ app.view(
         ...message(story),
       });
     } catch (ex) {
-      logger.error(ex.message);
+      logger.error(ex);
     }
   }
 );
@@ -377,8 +240,7 @@ app.command(
 // respond to hellos
 app.message(/hello/i, async (args) => {
   const { message, say, logger } = args;
-
-  console.log(inspect({ message }, { colors: true, depth: null }));
+  logger.debug(inspect({ message }, { colors: true, depth: null }));
 
   try {
     await say("Hello Back!");
