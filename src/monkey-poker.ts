@@ -1,10 +1,21 @@
-import { App, ExpressReceiver, LogLevel } from "@slack/bolt";
+import {
+  AllMiddlewareArgs,
+  App,
+  BlockAction,
+  ExpressReceiver,
+  LogLevel,
+  SlackActionMiddlewareArgs
+} from "@slack/bolt";
 import { config } from "dotenv";
 import { inspect } from "util";
 import { apiRouter } from "./api";
 import Auth from "./model/Auth";
-import Story, { IStory } from "./model/Story";
-import { IVote } from "./model/Vote";
+import {
+  createStory,
+  getStory,
+  toggleStoryShowVotes,
+  updateStoryVote
+} from "./model/Story";
 import { dialog, message } from "./slack";
 
 config();
@@ -30,58 +41,47 @@ const app = new App({
 
 receiver.router.use(apiRouter(app));
 
-app.use(async (args) => {
-  const { payload, context, next, client, logger } = args;
+// app.use(async (args) => {
+//   const { payload, context, next, client, logger } = args;
 
-  logger.debug(inspect({ payload }, { colors: true, depth: 1 }));
-  logger.debug(inspect({ context }, { colors: true, depth: 1 }));
+//   logger.debug(inspect({ payload }, { colors: true, depth: 1 }));
+//   logger.debug(inspect({ context }, { colors: true, depth: 1 }));
 
-  try {
-    if (payload["channel_id"]) {
-      const info = await client.conversations.info({
-        channel: payload["channel_id"],
-      });
+//   try {
+//     if (payload["channel_id"]) {
+//       const info = await client.conversations.info({
+//         channel: payload["channel_id"],
+//       });
 
-      logger.debug(info);
+//       logger.debug(info);
 
-      // } else {
-      //   await respond(
-      //     `I need to be added to this channel first. \`/invite <@${context.botUserId}>\``
-      //   );
-    }
-  } catch (ex) {
-    logger.error(ex.message);
-  }
+//       // } else {
+//       //   await respond(
+//       //     `I need to be added to this channel first. \`/invite <@${context.botUserId}>\``
+//       //   );
+//     }
+//   } catch (ex) {
+//     logger.error(ex.message);
+//   }
 
-  await next();
-});
-
-const createStory = async (story: IStory) => await Story.create(story);
-
-const getStory = async (storyId: string) => await Story.findById(storyId);
-
-const updateStoryVote = async (storyId: string, vote: IVote) =>
-  await Story.findById(storyId).then((story) => {
-    story.votes.push(vote);
-    return story.save();
-  });
-
-const toggleStoryShowVotes = async (storyId: string) =>
-  await Story.findById(storyId).then((story) => {
-    story.show_votes = !story.show_votes;
-    return story.save();
-  });
+//   await next();
+// });
 
 app.view("story-point-modal", async (args) => {
   const { view, body, client, ack, context, logger } = args;
   const { story_id, ts } = JSON.parse(view.private_metadata);
 
+  await ack();
+
+  logger.debug(
+    "story-point-modal",
+    inspect({ view }, { colors: true, depth: null })
+  );
+
   const vote = {
     userId: body.user.id,
     value: view.state.values.points.vote.selected_option.value,
   };
-
-  await ack();
 
   try {
     const story = await updateStoryVote(story_id, vote);
@@ -94,25 +94,43 @@ app.view("story-point-modal", async (args) => {
   }
 });
 
-app.action("open_vote", async (args) => {
-  const { action, body, client, ack, logger, respond } = args;
-  const { user } = body;
+app.action(
+  "open_vote",
+  async (args: SlackActionMiddlewareArgs<BlockAction> & AllMiddlewareArgs) => {
+    const { action, body, client, ack, logger, respond } = args;
+    const { user, trigger_id, message } = body;
 
-  await ack();
+    await ack();
 
-  try {
-    const story = await getStory(action["value"]);
-    await client.views.open(dialog("trigger_id", story, "message.ts", user.id));
-  } catch (ex) {
-    logger.error(ex.message);
-    await respond(ex.message);
+    logger.debug(
+      "open_vote",
+      inspect({ action }, { colors: true, depth: null })
+    );
+    logger.debug("open_vote", inspect({ body }, { colors: true, depth: null }));
+
+    try {
+      const story = await getStory(action["value"]);
+      const dlg = dialog(trigger_id, story, message.ts, user.id);
+
+      logger.debug("open_vote", inspect(dlg, { colors: true, depth: null }));
+
+      await client.views.open(dlg);
+    } catch (ex) {
+      logger.error(ex.message);
+      await respond(ex.message);
+    }
   }
-});
+);
 
 app.action("toggle_view", async (args) => {
   const { action, ack, respond, context, logger } = args;
 
   await ack();
+
+  logger.debug(
+    "toggle_view",
+    inspect({ action }, { colors: true, depth: null })
+  );
 
   try {
     const story = await toggleStoryShowVotes(action["value"]);
@@ -135,20 +153,17 @@ app.command("/point-story", async (args) => {
       userId: user_id,
       storyText: text,
     });
-    await say(message(story));
+    const msg = message(story);
+
+    logger.debug(
+      "point-story",
+      inspect({ msg }, { colors: true, depth: null })
+    );
+
+    await say(msg);
   } catch (ex) {
     logger.error(ex.message);
     await respond(ex.message);
-  }
-});
-
-app.message(/hello/i, async (args) => {
-  const { message, say, logger } = args;
-
-  try {
-    await say("Hello Back!");
-  } catch (ex) {
-    logger.error(ex.message);
   }
 });
 

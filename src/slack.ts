@@ -40,14 +40,14 @@ export const message = (story: IStoryDocument) => {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `:raising_hand: <@${userId}> has requested the team point this story:`,
+          text: `:man-raising-hand: <@${userId}> has requested the team point this story:`,
         },
       },
       {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `> "_${storyText}"_`,
+          text: `> "_${storyText}_"`,
         },
       },
       {
@@ -94,9 +94,9 @@ export const message = (story: IStoryDocument) => {
 export const option = (value: string | number): Option => ({
   text: {
     type: "mrkdwn",
-    text: `${value || ""}`,
+    text: `${value || "0"}`,
   },
-  value: `${value || ""}`,
+  value: `${value || "0"}`,
 });
 
 export const dialog = (

@@ -23,6 +23,24 @@ export interface IStory {
 export interface IStoryDocument extends IStory, Document {}
 export interface IStoryModel extends Model<IStoryDocument> {}
 
-const StoryModel = model<IStoryDocument>("Story", StorySchema);
+export const StoryModel = model<IStoryDocument>("Story", StorySchema);
+
+export const createStory = async (story: IStory) =>
+  await StoryModel.create(story);
+
+export const getStory = async (storyId: string) =>
+  await StoryModel.findById(storyId);
+
+export const updateStoryVote = async (storyId: string, vote: IVote) =>
+  await StoryModel.findById(storyId).then((story) => {
+    story.votes.push(vote);
+    return story.save();
+  });
+
+export const toggleStoryShowVotes = async (storyId: string) =>
+  await StoryModel.findById(storyId).then((story) => {
+    story.show_votes = !story.show_votes;
+    return story.save();
+  });
 
 export default StoryModel;
