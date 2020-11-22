@@ -5,11 +5,22 @@ import moment from "moment";
 
 config();
 
+jest.mock("axios", () => {
+  return {
+    post: jest.fn((url, { params }) =>
+      Promise.resolve({ data: { url, params } })
+    ),
+    get: jest.fn((url, { params }) =>
+      Promise.resolve({ data: { url, params } })
+    ),
+  };
+});
+
 describe("Tests", function () {
   it("slack", async () => {
     const requestBody = {
-      "type": "commands_changed",
-      "event_ts" : "1361482916.000004"
+      type: "commands_changed",
+      event_ts: "1361482916.000004",
     };
     const timestamp = moment().unix();
     const sigBasestring = "v0:" + timestamp + ":" + JSON.stringify(requestBody);

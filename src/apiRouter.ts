@@ -1,10 +1,8 @@
 import { App } from "@slack/bolt";
 import { config } from "dotenv";
 import { Router } from "express";
-import { readFileSync } from "fs";
-import handlebars from "handlebars";
-import { resolve } from "path";
-import Auth from "./model/Auth";
+import AuthModel from "./model/Auth";
+import StoryModel from "./model/Story";
 
 config();
 
@@ -13,11 +11,11 @@ const { SLACK_CLIENT_SECRET, SLACK_CLIENT_ID, SLACK_APP_ID } = process.env;
 export const apiRouter = (app: App): Router => {
   const router = Router();
 
-  router.get("/health", (req, res, next) => {
-    res.json({ SLACK_APP_ID });
+  router.get("/health", (req, res) => {
+    res.json({ ok: true, vars: { SLACK_APP_ID } });
   });
 
-  router.get("/install", async (req, res, next) => {
+  router.get("/install", async (req, res) => {
     const { query } = req;
     const { code } = query;
 
@@ -29,7 +27,8 @@ export const apiRouter = (app: App): Router => {
       });
 
       const auth =
-        (await Auth.findOne({ teamId: access.team["id"] })) || new Auth();
+        (await AuthModel.findOne({ teamId: access.team["id"] })) ||
+        new AuthModel();
 
       await auth
         .overwrite({
@@ -47,16 +46,10 @@ export const apiRouter = (app: App): Router => {
     }
   });
 
-  router.get("/", (req, res, next) =>
-    res.send(
-      handlebars.compile(
-        readFileSync(resolve("public/index.handlebars"), "utf-8")
-      )({
-        SLACK_CLIENT_ID,
-        SLACK_APP_ID,
-      })
-    )
-  );
+  router.get("/stories", async (req, res) => {
+    const stories = await StoryModel.find();
+    res.json(stories);
+  });
 
   return router;
 };

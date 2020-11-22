@@ -4,21 +4,22 @@ import {
   BlockAction,
   ExpressReceiver,
   LogLevel,
-  SlackActionMiddlewareArgs
+  SlackActionMiddlewareArgs,
 } from "@slack/bolt";
-import { config } from "dotenv";
+import express from "express";
+import handlebars from "express-handlebars";
+import { resolve } from "path";
 import { inspect } from "util";
-import { apiRouter } from "./api";
+import { apiRouter } from "./apiRouter";
 import Auth from "./model/Auth";
 import {
   createStory,
   getStory,
   toggleStoryShowVotes,
-  updateStoryVote
+  updateStoryVote,
 } from "./model/Story";
+import { pageRouter } from "./pageRouter";
 import { dialog, message } from "./slack";
-
-config();
 
 const { SLACK_SIGNING_SECRET, SLACK_DEBUG } = process.env;
 
@@ -39,6 +40,11 @@ const app = new App({
   receiver,
 });
 
+receiver.app.set("view engine", "handlebars");
+receiver.app.engine("handlebars", handlebars());
+receiver.app.use(express.static("public"));
+
+receiver.router.use(pageRouter(app));
 receiver.router.use(apiRouter(app));
 
 // app.use(async (args) => {
