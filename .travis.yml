@@ -9,10 +9,13 @@ os:
 
 notifications:
   email:
-    on_failure: github@stejsoftware.com
+    recipients:
+      - github@stejsoftware.com
+    on_failure: always
+    on_success: change
 
 env:
   - SLACK_CLIENT_ID=000.000
-    SLACK_CLIENT_SECRET=testtest 
+    SLACK_CLIENT_SECRET=testtest
     SLACK_SIGNING_SECRET=testtest
     SLACK_APP_ID=A01EC7LC547
