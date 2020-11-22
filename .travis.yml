@@ -2,13 +2,17 @@ language: node_js
 
 node_js:
   - "node"
+dist:
+  - xenial
+os:
+  - linux
 
 notifications:
   email:
     on_failure: github@stejsoftware.com
 
 env:
-  - SLACK_CLIENT_ID      = 000.000
-    SLACK_CLIENT_SECRET  = testtest 
-    SLACK_SIGNING_SECRET = testtest
-    SLACK_APP_ID         = A01EC7LC547
+  - SLACK_CLIENT_ID=000.000
+    SLACK_CLIENT_SECRET=testtest 
+    SLACK_SIGNING_SECRET=testtest
+    SLACK_APP_ID=A01EC7LC547
