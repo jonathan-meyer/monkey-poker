@@ -9,8 +9,12 @@ const { SLACK_CLIENT_ID, SLACK_APP_ID } = process.env;
 export const pageRouter = (app: App): Router => {
   const router = Router();
 
-  router.get("/:page?", (req, res) => {
-    res.render(req.params.page || "index", { SLACK_CLIENT_ID, SLACK_APP_ID });
+  router.get("/", (req, res) => {
+    res.render("index", { SLACK_CLIENT_ID, SLACK_APP_ID });
+  });
+
+  router.get("/dashboard", (req, res) => {
+    res.render("dashboard", { SLACK_CLIENT_ID, SLACK_APP_ID });
   });
 
   return router;
