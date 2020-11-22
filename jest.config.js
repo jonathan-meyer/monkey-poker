@@ -1,5 +1,6 @@
 module.exports = {
   verbose: true,
   collectCoverage: false,
-  testEnvironment: "node"
+  testEnvironment: "node",
+  coverageReporters: ["json", "text", "html"],
 };
