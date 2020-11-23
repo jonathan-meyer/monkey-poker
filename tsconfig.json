@@ -2,15 +2,15 @@
   "compilerOptions": {
     "module": "CommonJS",
     "target": "ES5",
-    "lib": ["ES2019", "ES5", "DOM"],   
+    "lib": ["ES2019", "ES5", "DOM"],
     "declaration": true,
-    "outDir": "dist",
-    "sourceMap": false,
+    "outDir": "build",
+    "sourceMap": true,
     "moduleResolution": "Node",
+    "esModuleInterop": true,
+    "noImplicitAny": false,
     "allowJs": true,
-    "checkJs": true,
-    "esModuleInterop": true
   },
-  "include": ["src"],
+  "include": ["src/server", "src/model"],
   "exclude": ["node_modules", "**/__tests__"]
 }

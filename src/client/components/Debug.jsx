@@ -1,10 +1,11 @@
 import React from "react";
+import Alert from "react-bootstrap/Alert";
+import { inspect } from "util";
 
-const Debug = () => (
-  <div class="alert alert-success mt-1">
-    <li>{{ SLACK_CLIENT_ID }}</li>
-    <li>{{ SLACK_APP_ID }}</li>
-  </div>
+const Debug = ({ data }) => (
+  <Alert variant="info" className="mt-2">
+    <pre>{inspect(data, { depth: null, compact: false })}</pre>
+  </Alert>
 );
 
 export default Debug;

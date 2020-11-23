@@ -1,10 +1,8 @@
-import React from 'react';
-import ReactDOM from 'react-dom';
+import React from "react";
+import ReactDOM from "react-dom";
 
-import Root from './containers/Root';
+import App from "./components/App";
 
-// global styles
-import 'bootstrap/dist/css/bootstrap.min.css';
-import './style.scss';
+import "bootstrap/dist/css/bootstrap.min.css";
 
-ReactDOM.render(<Root />, document.getElementById('app'));
+ReactDOM.render(<App />, document.getElementById("app"));

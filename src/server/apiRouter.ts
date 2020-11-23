@@ -1,18 +1,26 @@
 import { App } from "@slack/bolt";
 import { config } from "dotenv";
 import { Router } from "express";
-import AuthModel from "./model/Auth";
-import StoryModel from "./model/Story";
+import AuthModel from "../model/Auth";
+import StoryModel from "../model/Story";
 
 config();
 
 const { SLACK_CLIENT_SECRET, SLACK_CLIENT_ID, SLACK_APP_ID } = process.env;
+const { DEBUG, WEBPACK_MODE } = process.env;
 
 export const apiRouter = (app: App): Router => {
   const router = Router();
 
   router.get("/health", (req, res) => {
-    res.json({ ok: true, vars: { SLACK_APP_ID } });
+    res.json({ ok: true });
+  });
+
+  router.get("/config", (req, res) => {
+    res.json({
+      ok: true,
+      env: { SLACK_CLIENT_ID, SLACK_APP_ID, DEBUG, WEBPACK_MODE },
+    });
   });
 
   router.get("/install", async (req, res) => {

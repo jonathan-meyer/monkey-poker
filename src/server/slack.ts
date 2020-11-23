@@ -1,5 +1,5 @@
 import { Option, ViewsOpenArguments } from "@slack/web-api";
-import { IStoryDocument } from "./model/Story";
+import { IStoryDocument } from "../model/Story";
 
 export const toggleViewButton = (storyId: string, showVotes: boolean) => {
   const button = {
