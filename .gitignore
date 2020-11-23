@@ -129,3 +129,6 @@ $RECYCLE.BIN/
 
 data/
 dist/
+types/
+build/
+build-dev/
