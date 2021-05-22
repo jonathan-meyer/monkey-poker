@@ -10,6 +10,8 @@
     "esModuleInterop": true,
     "noImplicitAny": false,
     "allowJs": true,
+    "strictNullChecks": false,
+    "isolatedModules": true
   },
   "include": ["src/server", "src/model"],
   "exclude": ["node_modules", "**/__tests__"]

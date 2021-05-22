@@ -26,7 +26,7 @@ const App = () => {
         </Card.Header>
         <Card.Body>
           <a
-            className="btn"
+            className="btn m-0 p-0"
             role="button"
             target="_blank"
             href={`https://slack.com/oauth/v2/authorize?${Object.entries({
@@ -61,7 +61,7 @@ const App = () => {
             />
           </a>
           <a
-            className="btn btn-primary mr-2"
+            className="btn btn-primary mx-2"
             target="_blank"
             role="button"
             href={`https://slack.com/apps/${SLACK_APP_ID}`}
@@ -69,7 +69,7 @@ const App = () => {
             Slack App Page
           </a>
           <a
-            className="btn btn-primary mr-2"
+            className="btn btn-primary"
             target="_blank"
             role="button"
             href="https://github.com/jonathan-meyer/monkey-poker"

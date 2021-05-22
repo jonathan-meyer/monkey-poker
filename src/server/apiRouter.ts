@@ -41,9 +41,9 @@ export const apiRouter = (app: App): Router => {
       await auth
         .overwrite({
           teamId: access.team["id"],
-          botToken: access.access_token,
-          botId: access.app_id,
-          botUserId: access.bot_user_id,
+          botToken: access.access_token as string,
+          botId: access.app_id as string,
+          botUserId: access.bot_user_id as string,
         })
         .save();
 
