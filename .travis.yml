@@ -5,6 +5,9 @@ dist: xenial
 node_js:
   - 12
 
+before_install:
+  - npm i -g npm@7
+
 notifications:
   email:
     recipients:
@@ -16,3 +19,4 @@ env:
     SLACK_CLIENT_SECRET=testtest
     SLACK_APP_ID=A01SETJ0001
     SLACK_DEBUG=yes
+
