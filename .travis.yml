@@ -3,7 +3,7 @@ os: linux
 dist: xenial
 
 node_js:
-  - "node"
+  - 12
 
 notifications:
   email:
