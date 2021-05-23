@@ -2,9 +2,6 @@ import { ExpressReceiver } from "@slack/bolt";
 import { config } from "dotenv";
 import mongoose from "mongoose";
 import serveStatic from "serve-static";
-import webpack from "webpack";
-import webpackDevMiddleware from "webpack-dev-middleware";
-import webpackHotMiddleware from "webpack-hot-middleware";
 import { apiRouter } from "./apiRouter";
 import { monkeyPoker } from "./monkey-poker";
 
@@ -27,6 +24,9 @@ const mp_app = monkeyPoker(receiver);
 receiver.router.use(apiRouter(mp_app));
 
 if (WEBPACK_MODE === "development") {
+  const webpack = require("webpack");
+  const webpackDevMiddleware = require("webpack-dev-middleware");
+  const webpackHotMiddleware = require("webpack-hot-middleware");
   const webpackConfig = require("../../config/webpack.config.local");
   const compiler = webpack(webpackConfig);
 
