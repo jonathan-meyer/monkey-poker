@@ -127,8 +127,8 @@ $RECYCLE.BIN/
 
 # End of https://www.gitignore.io/api/osx,node,linux,windows
 
-data/
-dist/
-types/
-build/
-build-dev/
+/data/
+/dist/
+/types/
+/build/
+/build-dev/

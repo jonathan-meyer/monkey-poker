@@ -1,4 +1,5 @@
-import { Document, model, Model, Schema } from "mongoose";
+import { Document, model, PaginateModel, Schema } from "mongoose";
+import mongoosePaginate from "mongoose-paginate-v2";
 import { IVote, VoteSchema } from "./Vote";
 
 export const StorySchema = new Schema(
@@ -12,6 +13,8 @@ export const StorySchema = new Schema(
   { timestamps: true }
 );
 
+StorySchema.plugin(mongoosePaginate);
+
 export interface IStory {
   channelId: string;
   userId: string;
@@ -21,9 +24,12 @@ export interface IStory {
 }
 
 export interface IStoryDocument extends IStory, Document {}
-export interface IStoryModel extends Model<IStoryDocument> {}
+export interface IStoryModel extends PaginateModel<IStoryDocument> {}
 
-export const StoryModel = model<IStoryDocument>("Story", StorySchema);
+export const StoryModel = model<IStoryDocument>(
+  "Story",
+  StorySchema
+) as IStoryModel;
 
 export const createStory = async (story: IStory) =>
   await StoryModel.create(story);

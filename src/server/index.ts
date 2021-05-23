@@ -9,7 +9,7 @@ config();
 
 const { PORT, MONGODB_URI } = process.env;
 const { SLACK_SIGNING_SECRET } = process.env;
-const { WEBPACK_MODE, DEBUG } = process.env;
+const { WEBPACK_MODE, DEBUG, SLACK_DEBUG } = process.env;
 
 if (!PORT) throw Error("PORT is not set");
 if (!MONGODB_URI) throw Error("MONGODB_URI is not set");
@@ -51,7 +51,8 @@ if (WEBPACK_MODE === "development") {
       useUnifiedTopology: true,
     });
 
-    console.log({ WEBPACK_MODE, DEBUG });
+    console.log("connected to monodb");
+    console.log({ WEBPACK_MODE, DEBUG, SLACK_DEBUG });
 
     await mp_app.start(PORT);
 

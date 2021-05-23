@@ -1,8 +1,11 @@
 import { App } from "@slack/bolt";
 import { config } from "dotenv";
 import { Router } from "express";
+import { isString } from "lodash";
+import { FilterQuery, PaginateOptions } from "mongoose";
+import { ParsedQs } from "qs";
 import AuthModel from "../model/Auth";
-import StoryModel from "../model/Story";
+import StoryModel, { IStoryDocument } from "../model/Story";
 
 config();
 
@@ -54,9 +57,46 @@ export const apiRouter = (app: App): Router => {
     }
   });
 
-  router.get("/stories", async (req, res) => {
-    const stories = await StoryModel.find();
+  const queryOptions = (query: ParsedQs): FilterQuery<IStoryDocument> => {
+    const opts: FilterQuery<IStoryDocument> = {};
+
+    if (query.channelId && isString(query.channelId)) {
+      opts.channelId = query.channelId;
+    }
+
+    if (query.userId && isString(query.userId)) {
+      opts.userId = query.userId;
+    }
+
+    if (query.storyText && isString(query.storyText)) {
+      opts.storyText = new RegExp(`${query.storyText}`, "i");
+    }
+
+    return opts;
+  };
+
+  const pageOptions = (query: ParsedQs): PaginateOptions => ({
+    page: Number(query.page) || 1,
+    limit: Number(query.limit) || 10,
+  });
+
+  router.get("/story", async (req, res) => {
+    const stories = await StoryModel.paginate(
+      queryOptions(req.query),
+      pageOptions(req.query)
+    );
     res.json(stories);
+  });
+
+  router.get("/story/:id", async (req, res) => {
+    const { id } = req.params;
+    const story = await StoryModel.findById(id);
+
+    if (story) {
+      res.json(story);
+    } else {
+      res.status(404).json({ error: "Not Found" });
+    }
   });
 
   return router;
