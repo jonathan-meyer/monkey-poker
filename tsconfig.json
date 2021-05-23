@@ -13,6 +13,7 @@
     "strictNullChecks": false,
     "isolatedModules": true,
     "baseUrl": ".",
+    "jsx": "react",
     "paths": {
       "mongoose-paginate-v2": ["src/types/mongoose-paginate-v2"]
     }

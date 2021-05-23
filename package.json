@@ -5,7 +5,7 @@
   "main": "build/server",
   "scripts": {
     "start": "node .",
-    "start-dev-client": "cross-env WEBPACK_MODE=development PORT=5000 DEBUG=@slack/events-api:* node dist/server",
+    "start-dev-client": "npm run build-dev-server && cross-env WEBPACK_MODE=development PORT=5000 DEBUG=@slack/events-api:* node dist/server",
     "start-dev-server": "npm run build-dev-server && concurrently npm:watch:build-dev-server npm:watch:start-dev-server",
     "build-dev-server": "rimraf dist && tsc --outDir dist",
     "watch:build-dev-server": "tsc --outDir dist --watch --preserveWatchOutput",
@@ -49,6 +49,7 @@
     "qs": "^6.9.4",
     "react": "^16.13.1",
     "react-bootstrap": "^1.6.0",
+    "react-data-grid": "^7.0.0-canary.48",
     "react-dom": "^16.13.1",
     "react-hot-loader": "^4.12.21",
     "react-redux": "^6.0.0",

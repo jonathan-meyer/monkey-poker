@@ -21,6 +21,7 @@ export interface IStory {
   storyText: string;
   show_votes?: boolean;
   votes?: IVote[];
+  createdAt?: string;
 }
 
 export interface IStoryDocument extends IStory, Document {}
