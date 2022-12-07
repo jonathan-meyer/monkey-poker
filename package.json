@@ -46,7 +46,7 @@
     "morgan": "^1.10.0",
     "popper.js": "^1.16.1",
     "prop-types": "^15.6.2",
-    "qs": "^6.9.4",
+    "qs": "^6.10.3",
     "react": "^16.13.1",
     "react-bootstrap": "^1.6.0",
     "react-data-grid": "^7.0.0-canary.48",
